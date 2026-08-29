@@ -67,15 +67,9 @@ export const handler = async (input: FinalizeRunInput): Promise<FinalizeRunOutpu
     history: input.history,
   });
 
-  const attempts = input.iteration + 1;
-  const passLabel = input.review.pass ? "合格" : `不合格(上限${attempts}回で打ち切り)`;
-  const emailMessage = `${postText}
+  const emailMessage = `本日の4コマ漫画「${input.comic.title}」（${input.trend.theme}）ができました。
 
-${imageUrl}
-
----
-レビュー結果: ${passLabel} (${input.review.score}点)
-生成回数: ${attempts}回`;
+${imageUrl}`;
 
   await publishNotification(`本日の4コマ漫画: ${input.comic.title}`, emailMessage);
 
