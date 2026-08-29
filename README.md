@@ -8,16 +8,16 @@ Step Functions（Standard Workflow）が以下の順で5つのLambdaを実行す
 
 ```mermaid
 flowchart TD
-    Start([EventBridge<br/>毎日09:00 JST]) --> InitRun[InitRun<br/>runId発行・履歴初期化]
+    Start(["EventBridge<br/>毎日09:00 JST"]) --> InitRun["InitRun<br/>runId発行・履歴初期化"]
     InitRun --> ResearchTrend["① ResearchTrend<br/>Web検索でXのトレンドを調査しテーマ決定"]
     ResearchTrend --> PlanComic["② PlanComic<br/>4コマの構成案(セリフ含む)を作成"]
     PlanComic --> GenerateImage["③ GenerateImage<br/>画像生成(初回 or 前回への修正)"]
     GenerateImage --> ReviewImage["④ ReviewImage<br/>vision AIで厳しく採点・レイアウトチェック"]
-    ReviewImage --> Choice{合格 or<br/>上限到達?}
-    Choice -- 不合格 かつ<br/>リトライ余地あり --> PrepareRetry[PrepareRetry<br/>iteration+1・指摘事項を引き継ぐ]
+    ReviewImage --> Choice{"合格 or<br/>上限到達?"}
+    Choice -- "不合格 かつ<br/>リトライ余地あり" --> PrepareRetry["PrepareRetry<br/>iteration+1・指摘事項を引き継ぐ"]
     PrepareRetry --> GenerateImage
-    Choice -- 合格 / 上限到達 --> FinalizeRun["⑤ FinalizeRun<br/>X投稿文生成・summary.json保存・メール通知"]
-    FinalizeRun --> End([完了])
+    Choice -- "合格 / 上限到達" --> FinalizeRun["⑤ FinalizeRun<br/>X投稿文生成・summary.json保存・メール通知"]
+    FinalizeRun --> End(["完了"])
 ```
 
 各ステップの入出力はStep Functionsの実行コンテキストにJSONとして蓄積され、`runId` / `llmProvider` / `imageProvider` / `history`（各試行の記録）が最初から最後まで引き継がれる。
@@ -40,66 +40,66 @@ flowchart TD
 ```mermaid
 flowchart TB
     subgraph Trigger["トリガー"]
-        EB[EventBridge Rule<br/>cron 0 0 * * ? *]
+        EB["EventBridge Rule<br/>cron 0 0 * * ? *"]
     end
 
     subgraph SF["Step Functions State Machine (Standard)"]
-        SM[ComicPipeline]
+        SM["ComicPipeline"]
     end
 
     subgraph Lambdas["Lambda (Node.js 22.x, 共通コード: lambda/common/)"]
-        L1[ResearchTrendFn]
-        L2[PlanComicFn]
-        L3[GenerateImageFn]
-        L4[ReviewImageFn]
-        L5[FinalizeRunFn]
+        L1["ResearchTrendFn"]
+        L2["PlanComicFn"]
+        L3["GenerateImageFn"]
+        L4["ReviewImageFn"]
+        L5["FinalizeRunFn"]
     end
 
     subgraph External["外部LLM/画像生成API"]
-        Claude[Anthropic Claude API]
-        OpenAI[OpenAI API]
-        Gemini[Google Gemini API]
-        Bedrock[Amazon Bedrock<br/>Stability AI (us-west-2)]
+        Claude["Anthropic Claude API"]
+        OpenAI["OpenAI API"]
+        Gemini["Google Gemini API"]
+        Bedrock["Amazon Bedrock<br/>Stability AI (us-west-2)"]
     end
 
     subgraph Storage["データ・シークレット"]
-        S3[(S3 Bucket<br/>画像・プロンプト・レビュー結果・summary.json<br/>30日で自動削除)]
-        SM_Secrets[Secrets Manager<br/>anthropic/gemini/openai APIキー]
+        S3[("S3 Bucket<br/>画像・プロンプト・レビュー結果・summary.json<br/>30日で自動削除")]
+        SM_Secrets["Secrets Manager<br/>anthropic/gemini/openai APIキー"]
     end
 
     subgraph Notify["通知"]
-        SNS[SNS Topic<br/>ユーザー指定・既存トピック]
-        Email[メール<br/>X投稿文 + 画像リンク]
+        SNS["SNS Topic<br/>ユーザー指定・既存トピック"]
+        Email["メール<br/>X投稿文 + 画像リンク"]
     end
 
-    EB -->|"{llmProvider, imageProvider}"| SM
+    EB -->|"llmProvider, imageProvider"| SM
     SM --> L1 --> L2 --> L3 --> L4
-    L4 -->|不合格・リトライ余地あり| L3
-    L4 -->|合格 or 上限到達| L5
+    L4 -->|"不合格・リトライ余地あり"| L3
+    L4 -->|"合格 or 上限到達"| L5
 
-    L1 -.->|Secrets Manager経由| Claude
+    L1 -.->|"Secrets Manager経由"| Claude
     L1 -.-> OpenAI
     L2 -.-> Claude
     L2 -.-> OpenAI
     L3 -.-> Gemini
     L3 -.-> OpenAI
-    L3 -.->|IAMロールのみ・APIキー不要| Bedrock
+    L3 -.->|"IAMロールのみ・APIキー不要"| Bedrock
     L4 -.-> Claude
     L4 -.-> OpenAI
     L5 -.-> Claude
     L5 -.-> OpenAI
 
-    L1 -. GetSecretValue .-> SM_Secrets
-    L2 -. GetSecretValue .-> SM_Secrets
-    L3 -. GetSecretValue .-> SM_Secrets
-    L4 -. GetSecretValue .-> SM_Secrets
-    L5 -. GetSecretValue .-> SM_Secrets
+    L1 -. "GetSecretValue" .-> SM_Secrets
+    L2 -. "GetSecretValue" .-> SM_Secrets
+    L3 -. "GetSecretValue" .-> SM_Secrets
+    L4 -. "GetSecretValue" .-> SM_Secrets
+    L5 -. "GetSecretValue" .-> SM_Secrets
 
-    L3 -->|PutObject| S3
-    L4 -->|GetObject/PutObject| S3
-    L5 -->|GetObject/PutObject + presigned URL発行| S3
+    L3 -->|"PutObject"| S3
+    L4 -->|"GetObject/PutObject"| S3
+    L5 -->|"GetObject/PutObject + presigned URL発行"| S3
 
-    L5 -->|Publish| SNS --> Email
+    L5 -->|"Publish"| SNS --> Email
 ```
 
 ### 使用しているAWSサービス
