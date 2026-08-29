@@ -12,6 +12,7 @@ import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as path from "path";
 
 const MAX_ITERATIONS = 3;
+const MAX_COMIC_ITERATIONS = 3;
 const CLAUDE_MODEL = "claude-sonnet-5";
 const OPENAI_MODEL = "gpt-5.1";
 const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
@@ -107,9 +108,23 @@ export class XTrend4KomaStack extends cdk.Stack {
     });
     anthropicSecret.grantRead(planComicFn);
     openAiSecret.grantRead(planComicFn);
+    // Reads the accumulated comedy-learnings.md (see common/comedy-learnings.ts).
+    imageBucket.grantRead(planComicFn);
+
+    const reviewComicFn = makeFunction("ReviewComicFn", "review-comic", {
+      timeoutSeconds: 60,
+      memoryMB: 512,
+    });
+    anthropicSecret.grantRead(reviewComicFn);
+    openAiSecret.grantRead(reviewComicFn);
+    imageBucket.grantReadWrite(reviewComicFn);
 
     const generateImageFn = makeFunction("GenerateImageFn", "generate-image", {
-      timeoutSeconds: 120,
+      // OpenAI's image_generation tool has been observed to occasionally take
+      // well over 120s (4 consecutive timeouts exhausted all retries in one
+      // run) — 180s gives real headroom without risking the overall state
+      // machine timeout below.
+      timeoutSeconds: 180,
       memoryMB: 1024,
     });
     geminiSecret.grantRead(generateImageFn);
@@ -151,7 +166,9 @@ export class XTrend4KomaStack extends cdk.Stack {
       parameters: {
         "runId.$": "$$.Execution.Name",
         maxIterationIndex: MAX_ITERATIONS - 1,
+        maxComicIterationIndex: MAX_COMIC_ITERATIONS - 1,
         history: [],
+        comicHistory: [],
         // Which provider to use for research/planning/review, and which for
         // image generation, this run. Required on every execution input —
         // e.g. {"llmProvider": "openai", "imageProvider": "gemini"}.
@@ -187,6 +204,13 @@ export class XTrend4KomaStack extends cdk.Stack {
       })
     );
 
+    const reviewComicTask = withApiRetry(
+      new tasks.LambdaInvoke(this, "ReviewComic", {
+        lambdaFunction: reviewComicFn,
+        payloadResponseOnly: true,
+      })
+    );
+
     const generateImageTask = withApiRetry(
       new tasks.LambdaInvoke(this, "GenerateImage", {
         lambdaFunction: generateImageFn,
@@ -208,15 +232,45 @@ export class XTrend4KomaStack extends cdk.Stack {
       })
     );
 
+    const prepareComicRetry = new sfn.Pass(this, "PrepareComicRetry", {
+      parameters: {
+        "runId.$": "$.runId",
+        "maxIterationIndex.$": "$.maxIterationIndex",
+        "maxComicIterationIndex.$": "$.maxComicIterationIndex",
+        "llmProvider.$": "$.llmProvider",
+        "imageProvider.$": "$.imageProvider",
+        "trend.$": "$.trend",
+        "history.$": "$.history",
+        "comicHistory.$": "$.comicHistory",
+        "comicIteration.$": "States.MathAdd($.comicIteration, 1)",
+        "previousComic.$": "$.comic",
+        "comicRevisionInstructions.$": "$.comicReview.revisionInstructions",
+      },
+    });
+    prepareComicRetry.next(planComicTask);
+
+    const comicFunnyChoice = new sfn.Choice(this, "ComicFunnyOrMaxedOut")
+      .when(sfn.Condition.booleanEquals("$.comicReview.pass", true), generateImageTask)
+      .when(
+        sfn.Condition.numberGreaterThanEqualsJsonPath(
+          "$.comicIteration",
+          "$.maxComicIterationIndex"
+        ),
+        generateImageTask
+      )
+      .otherwise(prepareComicRetry);
+
     const prepareRetry = new sfn.Pass(this, "PrepareRetry", {
       parameters: {
         "runId.$": "$.runId",
         "maxIterationIndex.$": "$.maxIterationIndex",
+        "maxComicIterationIndex.$": "$.maxComicIterationIndex",
         "llmProvider.$": "$.llmProvider",
         "imageProvider.$": "$.imageProvider",
         "trend.$": "$.trend",
         "comic.$": "$.comic",
         "history.$": "$.history",
+        "comicHistory.$": "$.comicHistory",
         "iteration.$": "States.MathAdd($.iteration, 1)",
         "previousImageKey.$": "$.imageKey",
         "previousImageGenerationCallId.$": "$.imageGenerationCallId",
@@ -236,14 +290,18 @@ export class XTrend4KomaStack extends cdk.Stack {
     const definition = initRun
       .next(researchTrendTask)
       .next(planComicTask)
-      .next(generateImageTask)
-      .next(reviewImageTask)
-      .next(reviewChoice);
+      .next(reviewComicTask)
+      .next(comicFunnyChoice);
+
+    generateImageTask.next(reviewImageTask).next(reviewChoice);
 
     const stateMachine = new sfn.StateMachine(this, "ComicPipeline", {
       definitionBody: sfn.DefinitionBody.fromChainable(definition),
       stateMachineType: sfn.StateMachineType.STANDARD,
-      timeout: cdk.Duration.minutes(15),
+      // GenerateImage retries alone can now take ~12min worst case (4
+      // attempts x 180s) if OpenAI is slow, so 15min was too tight — 25min
+      // leaves headroom for that plus the rest of the pipeline.
+      timeout: cdk.Duration.minutes(25),
     });
 
     // ---- Daily schedule -----------------------------------------------------

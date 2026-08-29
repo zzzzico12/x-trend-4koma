@@ -3,7 +3,13 @@ import { publishNotification } from "../common/sns";
 import { generateText } from "../common/llm-client";
 import type { LlmProvider } from "../common/llm-client";
 import type { ImageProvider } from "../common/image-client";
-import type { TrendResult, ComicPlan, ReviewResult, HistoryEntry } from "../common/types";
+import type {
+  TrendResult,
+  ComicPlan,
+  ReviewResult,
+  HistoryEntry,
+  ComicHistoryEntry,
+} from "../common/types";
 
 interface FinalizeRunInput {
   runId: string;
@@ -13,6 +19,7 @@ interface FinalizeRunInput {
   trend: TrendResult;
   comic: ComicPlan;
   history: HistoryEntry[];
+  comicHistory: ComicHistoryEntry[];
   iteration: number;
   imageKey: string;
   mimeType: string;
@@ -49,6 +56,8 @@ export const handler = async (input: FinalizeRunInput): Promise<FinalizeRunOutpu
   const postText = await buildPostText(input);
   const imageUrl = await getPresignedUrl(input.imageKey);
 
+  const finalFunnyScore = input.comicHistory[input.comicHistory.length - 1]?.funnyScore;
+
   await putJson(summaryKey, {
     runId: input.runId,
     llmProvider: input.llmProvider,
@@ -61,11 +70,12 @@ export const handler = async (input: FinalizeRunInput): Promise<FinalizeRunOutpu
     totalAttempts: input.iteration + 1,
     finalPass: input.review.pass,
     finalScore: input.review.score,
-    finalFunnyScore: input.review.funnyScore,
+    finalFunnyScore,
     finalFeedback: input.review.feedback,
     finalImageKey: input.imageKey,
     postText,
     history: input.history,
+    comicHistory: input.comicHistory,
   });
 
   const emailMessage = `本日の4コマ漫画「${input.comic.title}」（${input.trend.theme}）ができました。

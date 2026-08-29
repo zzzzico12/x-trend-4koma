@@ -28,6 +28,16 @@ export async function getImage(key: string): Promise<{ data: Buffer; mimeType: s
   return { data: Buffer.from(bytes), mimeType: result.ContentType || "image/png" };
 }
 
+export async function getText(key: string): Promise<string | undefined> {
+  try {
+    const result = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    return await result.Body!.transformToString();
+  } catch (err: any) {
+    if (err.name === "NoSuchKey") return undefined;
+    throw err;
+  }
+}
+
 // Lambda execution role credentials are temporary (STS), so a presigned URL
 // stops working once those credentials expire even if expiresIn is longer —
 // keep this well within a single Lambda credential lifetime.

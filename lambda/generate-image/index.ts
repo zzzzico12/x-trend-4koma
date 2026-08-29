@@ -2,16 +2,18 @@ import { generateImage, ImageProvider } from "../common/image-client";
 import { putImage, putText, getImage } from "../common/s3";
 import { FIXED_LAYOUT_INSTRUCTIONS } from "../common/layout-instructions";
 import type { LlmProvider } from "../common/llm-client";
-import type { TrendResult, ComicPlan, HistoryEntry } from "../common/types";
+import type { TrendResult, ComicPlan, HistoryEntry, ComicHistoryEntry } from "../common/types";
 
 interface GenerateImageInput {
   runId: string;
   maxIterationIndex: number;
+  maxComicIterationIndex: number;
   llmProvider: LlmProvider;
   imageProvider: ImageProvider;
   trend: TrendResult;
   comic: ComicPlan;
   history: HistoryEntry[];
+  comicHistory: ComicHistoryEntry[];
   iteration?: number;
   previousImageKey?: string;
   previousImageGenerationCallId?: string;
@@ -21,11 +23,13 @@ interface GenerateImageInput {
 interface GenerateImageOutput {
   runId: string;
   maxIterationIndex: number;
+  maxComicIterationIndex: number;
   llmProvider: LlmProvider;
   imageProvider: ImageProvider;
   trend: TrendResult;
   comic: ComicPlan;
   history: HistoryEntry[];
+  comicHistory: ComicHistoryEntry[];
   iteration: number;
   imageKey: string;
   imageGenerationCallId: string;
@@ -89,11 +93,13 @@ export const handler = async (input: GenerateImageInput): Promise<GenerateImageO
   return {
     runId: input.runId,
     maxIterationIndex: input.maxIterationIndex,
+    maxComicIterationIndex: input.maxComicIterationIndex,
     llmProvider: input.llmProvider,
     imageProvider: input.imageProvider,
     trend: input.trend,
     comic: input.comic,
     history: input.history,
+    comicHistory: input.comicHistory,
     iteration,
     imageKey,
     imageGenerationCallId: image.imageGenerationCallId,

@@ -12,9 +12,11 @@ async function getOpenAiClient(): Promise<OpenAI> {
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.1";
 
-// Portrait size closest to the "single vertical column of 4 panels" layout
-// requirement among the fixed enum of accepted `size` values.
-const IMAGE_SIZE = "1024x1536";
+// Portrait size for the "single vertical column of 4 panels" layout. Same 2:3
+// aspect ratio as 1024x1536 but ~23% fewer pixels, to test whether a smaller
+// resolution reduces generation latency (gpt-image-2 accepts arbitrary
+// WIDTHxHEIGHT as long as both edges are multiples of 16).
+const IMAGE_SIZE = "896x1344";
 
 export async function openaiGenerateImage(opts: {
   prompt: string;
