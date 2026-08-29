@@ -61,6 +61,7 @@ export const handler = async (input: FinalizeRunInput): Promise<FinalizeRunOutpu
     totalAttempts: input.iteration + 1,
     finalPass: input.review.pass,
     finalScore: input.review.score,
+    finalFunnyScore: input.review.funnyScore,
     finalFeedback: input.review.feedback,
     finalImageKey: input.imageKey,
     postText,

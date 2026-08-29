@@ -18,6 +18,8 @@ export interface ComicPlan {
 export interface ReviewResult {
   pass: boolean;
   score: number;
+  /** 0-100, judged independently of layout/legibility — does it actually land as a joke? */
+  funnyScore: number;
   feedback: string;
   revisionInstructions: string;
 }
@@ -29,6 +31,7 @@ export interface HistoryEntry {
   imageKey: string;
   reviewKey: string;
   score: number;
+  funnyScore: number;
   pass: boolean;
   feedback: string;
   revisionInstructions: string;
