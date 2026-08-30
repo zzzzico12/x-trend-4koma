@@ -47,8 +47,8 @@ flowchart TD
 | サービス | 役割 |
 |---|---|
 | **EventBridge (Rule)** | 毎日12:00 JSTにStep Functionsを起動（`enabled`で有効/無効を切替可能） |
-| **Step Functions (Standard)** | 5つのLambdaと画像修正リトライループをオーケストレーション |
-| **Lambda** (Node.js 22.x, TypeScript / esbuild) | 各処理ステップの実体。5関数すべて`lambda/common/`の共通クライアントを共有 |
+| **Step Functions (Standard)** | 6つのLambdaと、面白さ判定・画像修正の2つの独立したリトライループをオーケストレーション |
+| **Lambda** (Node.js 22.x, TypeScript / esbuild) | 各処理ステップの実体。6関数すべて`lambda/common/`の共通クライアントを共有 |
 | **S3** | 生成画像・プロンプト・レビューJSON・最終`summary.json`を`{runId}/`配下に保存。30日ライフサイクルで自動削除、パブリックアクセスは禁止（署名付きURLのみ） |
 | **Secrets Manager** | Anthropic / Gemini / OpenAIの各APIキーを保管（`x-trend-4koma/*-api-key`） |
 | **Bedrock** | Stability AI (SD3.5 Large) をIAMロールのみで呼び出し（APIキー不要、`us-west-2`固定、要AWS Marketplaceモデルアクセス同意） |
