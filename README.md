@@ -11,7 +11,7 @@ Step Functions（Standard Workflow）が6つのLambdaを実行する。**独立�
 
 ```mermaid
 flowchart TD
-    Start(["EventBridge<br/>毎日09:00 JST"]) --> InitRun["InitRun<br/>runId発行・履歴初期化"]
+    Start(["EventBridge<br/>毎日12:00 JST"]) --> InitRun["InitRun<br/>runId発行・履歴初期化"]
     InitRun --> ResearchTrend["① ResearchTrend<br/>Web検索でXのトレンドを調査しテーマ決定"]
     ResearchTrend --> PlanComic["② PlanComic<br/>テイストの異なる3案を並列生成(best-of-3)"]
     PlanComic --> ReviewComic["③ ReviewComic<br/>3案を比較し最も面白い1案を選定・厳しく採点"]
@@ -46,7 +46,7 @@ flowchart TD
 
 | サービス | 役割 |
 |---|---|
-| **EventBridge (Rule)** | 毎日09:00 JSTにStep Functionsを起動（`enabled`で有効/無効を切替可能） |
+| **EventBridge (Rule)** | 毎日12:00 JSTにStep Functionsを起動（`enabled`で有効/無効を切替可能） |
 | **Step Functions (Standard)** | 5つのLambdaと画像修正リトライループをオーケストレーション |
 | **Lambda** (Node.js 22.x, TypeScript / esbuild) | 各処理ステップの実体。5関数すべて`lambda/common/`の共通クライアントを共有 |
 | **S3** | 生成画像・プロンプト・レビューJSON・最終`summary.json`を`{runId}/`配下に保存。30日ライフサイクルで自動削除、パブリックアクセスは禁止（署名付きURLのみ） |

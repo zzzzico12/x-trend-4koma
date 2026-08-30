@@ -306,8 +306,8 @@ export class XTrend4KomaStack extends cdk.Stack {
 
     // ---- Daily schedule -----------------------------------------------------
     const dailyRule = new events.Rule(this, "DailySchedule", {
-      // 00:00 UTC = 09:00 JST
-      schedule: events.Schedule.cron({ minute: "0", hour: "0" }),
+      // 03:00 UTC = 12:00 JST
+      schedule: events.Schedule.cron({ minute: "0", hour: "3" }),
       enabled: true,
     });
     dailyRule.addTarget(
