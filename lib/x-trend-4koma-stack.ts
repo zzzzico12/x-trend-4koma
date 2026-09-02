@@ -29,6 +29,12 @@ export interface XTrend4KomaStackProps extends cdk.StackProps {
    * is passed in via the NOTIFY_TOPIC_ARN env var rather than hardcoded.
    */
   notifyTopicArn: string;
+  /**
+   * Anthropic workspace ID to send as the anthropic-workspace-id header.
+   * Only needed if the stored Anthropic API key is identity-linked (not
+   * bound to a single workspace); optional otherwise.
+   */
+  anthropicWorkspaceId?: string;
 }
 
 export class XTrend4KomaStack extends cdk.Stack {
@@ -85,6 +91,9 @@ export class XTrend4KomaStack extends cdk.Stack {
         bundling: commonBundling,
         environment: {
           ANTHROPIC_SECRET_ARN: anthropicSecret.secretArn,
+          ...(props.anthropicWorkspaceId
+            ? { ANTHROPIC_WORKSPACE_ID: props.anthropicWorkspaceId }
+            : {}),
           GEMINI_SECRET_ARN: geminiSecret.secretArn,
           OPENAI_SECRET_ARN: openAiSecret.secretArn,
           IMAGE_BUCKET_NAME: imageBucket.bucketName,

@@ -6,7 +6,13 @@ let cachedClient: Anthropic | undefined;
 async function getAnthropicClient(): Promise<Anthropic> {
   if (cachedClient) return cachedClient;
   const apiKey = await getSecret(process.env.ANTHROPIC_SECRET_ARN!);
-  cachedClient = new Anthropic({ apiKey });
+  // Identity-linked API keys aren't bound to a single workspace, so the
+  // workspace to act in must be declared on every request.
+  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
+  cachedClient = new Anthropic({
+    apiKey,
+    ...(workspaceId ? { defaultHeaders: { "anthropic-workspace-id": workspaceId } } : {}),
+  });
   return cachedClient;
 }
 

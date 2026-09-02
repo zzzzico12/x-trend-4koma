@@ -101,8 +101,11 @@ export AWS_PROFILE=<your-profile>
 
 `NOTIFY_TOPIC_ARN`（完成通知を送るSNSトピックのARN。メール購読が確認済みの既存トピックを指定）が必須。値はデプロイ環境ごとに異なるためリポジトリには含めず、環境変数で渡す。
 
+`ANTHROPIC_WORKSPACE_ID`は任意。Anthropicの「identity-linked」なAPIキー（特定ワークスペースに紐づかないキー）を使う場合、リクエストごとに`anthropic-workspace-id`ヘッダーでワークスペースを指定する必要がある。未設定でも動作するが、その場合`400: anthropic-workspace-id is required...`のようなエラーになることがある。
+
 ```bash
 export NOTIFY_TOPIC_ARN="arn:aws:sns:<region>:<account-id>:<topic-name>"
+export ANTHROPIC_WORKSPACE_ID="wrkspc_..."  # 任意
 npx cdk deploy
 ```
 

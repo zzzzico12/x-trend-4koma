@@ -14,6 +14,7 @@ if (!notifyTopicArn) {
 const app = new cdk.App();
 new XTrend4KomaStack(app, "XTrend4KomaStack", {
   notifyTopicArn,
+  anthropicWorkspaceId: process.env.ANTHROPIC_WORKSPACE_ID,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION || "ap-northeast-1",
