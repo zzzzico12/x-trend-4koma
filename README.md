@@ -13,8 +13,8 @@ Step Functions（Standard Workflow）が6つのLambdaを実行する。**独立�
 flowchart TD
     Start(["EventBridge<br/>毎日12:00 JST"]) --> InitRun["InitRun<br/>runId発行・履歴初期化"]
     InitRun --> ResearchTrend["① ResearchTrend<br/>Web検索でXのトレンドを調査しテーマ決定"]
-    ResearchTrend --> PlanComic["② PlanComic<br/>テイストの異なる3案を並列生成(best-of-3)"]
-    PlanComic --> ReviewComic["③ ReviewComic<br/>3案を比較し最も面白い1案を選定・厳しく採点"]
+    ResearchTrend --> PlanComic["② PlanComic<br/>テイストの異なる3案を並列生成(書き直し時は+前回案の改善で4案)"]
+    PlanComic --> ReviewComic["③ ReviewComic<br/>候補を比較し最も面白い1案を選定・厳しく採点"]
     ReviewComic --> ComicChoice{"合格 or<br/>上限到達?"}
     ComicChoice -- "不合格 かつ<br/>リトライ余地あり" --> PrepareComicRetry["PrepareComicRetry<br/>comicIteration+1・指摘事項を引き継ぐ"]
     PrepareComicRetry --> PlanComic
@@ -23,7 +23,7 @@ flowchart TD
     ReviewImage --> Choice{"合格 or<br/>上限到達?"}
     Choice -- "不合格 かつ<br/>リトライ余地あり" --> PrepareRetry["PrepareRetry<br/>iteration+1・指摘事項を引き継ぐ"]
     PrepareRetry --> GenerateImage
-    Choice -- "合格 / 上限到達" --> FinalizeRun["⑥ FinalizeRun<br/>X投稿文生成・summary.json保存・メール通知"]
+    Choice -- "合格 / 上限到達" --> FinalizeRun["⑥ FinalizeRun<br/>X投稿文生成・summary.json保存・メール通知(評価・改善の要約付き)"]
     FinalizeRun --> End(["完了"])
 ```
 
@@ -76,11 +76,11 @@ lambda/
 │   ├── comedy-learnings.ts       — 蓄積フィードバック(_meta/comedy-learnings.md)の読み込み
 │   └── types.ts                  — 共通の型定義
 ├── research-trend/index.ts       — ①トレンド調査
-├── plan-comic/index.ts           — ②構成案作成(3テイストを並列生成、best-of-3)
-├── review-comic/index.ts         — ③面白さレビュー(3案比較・選定)
+├── plan-comic/index.ts           — ②構成案作成(3テイストを並列生成。書き直し時は各テイストが新しい前提で作り直し、前回案の改善案を1つ追加)
+├── review-comic/index.ts         — ③面白さレビュー(候補比較・選定)
 ├── generate-image/index.ts       — ④画像生成(初回/修正)
 ├── review-image/index.ts         — ⑤画像レビュー(レイアウト・視認性)
-└── finalize-run/index.ts         — ⑥投稿文生成・summary保存・メール通知
+└── finalize-run/index.ts         — ⑥投稿文生成・summary保存・メール通知(画像リンク＋構成/画像の点数推移・講評・改善指示)
 ```
 
 ## セットアップ
@@ -152,7 +152,7 @@ attempt-3-prompt.txt      attempt-3.png      attempt-3-review.json   (リトラ�
 summary.json              — テーマ・構成・全履歴(history/comicHistory)・X投稿用キャプション(postText)
 ```
 
-`comic-attempt-N-candidates.json`は3テイスト全案、`comic-attempt-N.json`は選ばれた勝者案、`comic-attempt-N-review.json`は各案のスコアと選定理由。
+`comic-attempt-N-candidates.json`は全候補(3テイスト、書き直し時は前回案の改善を含む4案)、`comic-attempt-N.json`は選ばれた勝者案、`comic-attempt-N-review.json`は各案のスコアと選定理由。
 
 日次自動実行の有効/無効は`lib/x-trend-4koma-stack.ts`の`DailySchedule`（`events.Rule`の`enabled`）で切り替え、`cdk deploy`で反映する。
 

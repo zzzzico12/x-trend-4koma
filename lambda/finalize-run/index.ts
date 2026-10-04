@@ -51,6 +51,43 @@ async function buildPostText(input: FinalizeRunInput): Promise<string> {
   return text.trim();
 }
 
+const passLabel = (pass: boolean) => (pass ? "合格" : "不合格");
+const tasteLabel = (taste: string) => taste.replace(/^案\d+[:：]\s*/, "");
+
+export function buildReviewSummary(input: Pick<FinalizeRunInput, "comicHistory" | "history">): string {
+  const comicLines = input.comicHistory.map((entry, i) => {
+    const sorted = [...entry.candidateScores].sort((a, b) => b.funnyScore - a.funnyScore);
+    const best = sorted[0];
+    const others = sorted
+      .slice(1)
+      .map((c) => `${tasteLabel(c.taste)} ${c.funnyScore}`)
+      .join(" / ");
+    const lines = [
+      `${i + 1}回目: ${entry.funnyScore}点 ${passLabel(entry.pass)}（採用: ${best ? tasteLabel(best.taste) : "-"}）`,
+      `  講評: ${best?.comment}`,
+    ];
+    if (others) lines.push(`  他の案: ${others}`);
+    if (!entry.pass && entry.revisionInstructions) lines.push(`  改善指示: ${entry.revisionInstructions}`);
+    return lines.join("\n");
+  });
+
+  const imageLines = input.history.map((entry, i) => {
+    const line = `${i + 1}回目: ${entry.score}点 ${passLabel(entry.pass)}`;
+    return !entry.pass && entry.revisionInstructions
+      ? `${line}\n  改善指示: ${entry.revisionInstructions}`
+      : line;
+  });
+
+  const comicScores = input.comicHistory.map((e) => e.funnyScore).join(" → ");
+  const imageScores = input.history.map((e) => e.score).join(" → ");
+
+  return `■ 構成(オチ)の評価  ${comicScores}
+${comicLines.join("\n")}
+
+■ 画像の評価  ${imageScores}
+${imageLines.join("\n")}`;
+}
+
 export const handler = async (input: FinalizeRunInput): Promise<FinalizeRunOutput> => {
   const summaryKey = `${input.runId}/summary.json`;
   const postText = await buildPostText(input);
@@ -80,7 +117,9 @@ export const handler = async (input: FinalizeRunInput): Promise<FinalizeRunOutpu
 
   const emailMessage = `本日の4コマ漫画「${input.comic.title}」（${input.trend.theme}）ができました。
 
-${imageUrl}`;
+${imageUrl}
+
+${buildReviewSummary(input)}`;
 
   await publishNotification(`本日の4コマ漫画: ${input.comic.title}`, emailMessage);
 
