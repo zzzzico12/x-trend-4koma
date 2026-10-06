@@ -42,7 +42,7 @@ function buildInitialPrompt(comic: ComicPlan): string {
     .map((p) => `コマ${p.panel}: ${p.description}\nセリフ: 「${p.dialogue}」`)
     .join("\n\n");
 
-  return `以下の内容で、鉛筆で描いた4コマ漫画を1枚の画像として生成してください。
+  return `以下の内容で4コマ漫画のイラストを1枚の画像として生成してください。
 
 タイトル: ${comic.title}
 
